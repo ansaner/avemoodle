@@ -1,0 +1,17 @@
+/**
+ * Custom CSS
+ * This is the very last piece of CSS loaded, so if something looks weird,
+ * try removing your custom CSS from the theme settings page.
+ */
+
+[[setting:fontfilesheading]]
+
+[[setting:fontfilesbody]]
+
+[[setting:customcss]]
+#page-footer .themecredit {
+    display: none;
+}
+
+legend {border-bottom: 0 !important};
+
