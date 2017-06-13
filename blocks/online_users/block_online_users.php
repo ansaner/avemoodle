@@ -100,6 +100,22 @@ class block_online_users extends block_base {
         }
 
         $this->content->text = "<div class=\"info\">(".get_string("periodnminutes","block_online_users",$minutes)."$usercount)</div>";
+        
+        /**
+		* 	CODIGO AÑADIDO
+		*	AUTOR: DANIEL CABEZA
+		**/
+		$tutors = array();
+		$students = array();
+		foreach ($users as $user) {
+			if (has_capability('block/online_users:addinstance', $this->page->context, $user)) {
+				$tutors[$user->id] = $user;
+			}
+			else {
+				$students[$user->id] = $user;
+			}
+		}
+		/*FIN DE LA ADICIÓN*/
 
         //Now, we have in users, the list of users to show
         //Because they are online
@@ -114,7 +130,15 @@ class block_online_users extends block_base {
             } else {
                 $canshowicon = false;
             }
-            foreach ($users as $user) {
+            
+            /**
+			* 	CODIGO AÑADIDO
+			*	AUTOR: DANIEL CABEZA
+			**/
+            //foreach ($users as $user) {
+			if (!empty($tutors)) {
+				foreach ($tutors as $user) {
+			/*FIN DE LA ADICIÓN*/
                 $this->content->text .= '<li class="listentry">';
                 $timeago = format_time($now - $user->lastaccess); //bruno to calculate correctly on frontpage
 
@@ -139,6 +163,42 @@ class block_online_users extends block_base {
                 }
                 $this->content->text .= "</li>\n";
             }
+            /**
+			* 	CODIGO AÑADIDO
+			*	AUTOR: DANIEL CABEZA
+			**/
+			}			
+			
+			$this->content->text .= "</ul><br>\n";
+			$this->content->text .= "<ul class='list'>Estudiantes\n";
+			if (!empty ($students)) {
+				foreach ($students as $user) {
+					$this->content->text .= '<li class="listentry">';
+					$timeago = format_time($now - $user->lastaccess); //bruno to calculate correctly on frontpage
+
+					if (isguestuser($user)) {
+						$this->content->text .= '<div class="user">'.$OUTPUT->user_picture($user, array('size'=>16, 'alttext'=>false));
+						$this->content->text .= get_string('guestuser').'</div>';
+
+					} else {
+						$this->content->text .= '<div class="user">';
+						$this->content->text .= '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$this->page->course->id.'" title="'.$timeago.'">';
+						$this->content->text .= $OUTPUT->user_picture($user, array('size'=>16, 'alttext'=>false, 'link'=>false)) .$user->fullname.'</a></div>';
+					}
+					if ($canshowicon and ($USER->id != $user->id) and !isguestuser($user)) {  // Only when logged in and messaging active etc
+						$anchortagcontents = '<img class="iconsmall" src="'.$OUTPUT->pix_url('t/message') . '" alt="'. get_string('messageselectadd') .'" />';
+						$anchorurl = new moodle_url('/message/index.php', array('id' => $user->id));
+						$anchortag = html_writer::link($anchorurl, $anchortagcontents, array_merge(
+						  message_messenger_sendmessage_link_params($user),
+						  array('title' => get_string('messageselectadd'))
+						));
+
+						$this->content->text .= '<div class="message">'.$anchortag.'</div>';
+					}
+					$this->content->text .= "</li>\n";
+				}
+			}
+			/*FIN DE ADICIÓN*/
             $this->content->text .= '</ul><div class="clearer"><!-- --></div>';
         } else {
             $this->content->text .= "<div class=\"info\">".get_string("none")."</div>";
