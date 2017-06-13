@@ -2132,7 +2132,7 @@ function message_print_message_history($user1, $user2 ,$search = '', $messagelim
         'M.core_message.toolbox.deletemsg.init',
         array(array())
     );
-
+	
     echo $OUTPUT->box_start('center', 'message_user_pictures');
     echo $OUTPUT->box_start('user');
     echo $OUTPUT->box_start('generalbox', 'user1');
@@ -2231,10 +2231,21 @@ function message_print_message_history($user1, $user2 ,$search = '', $messagelim
                 $formatted_message .= $deleteicon;
             }
 
-            $tablecontents .= html_writer::tag('div', $formatted_message, array('class' => "mdl-left messagecontent
+			/**CÓDIGO AÑADIDO Y MODIFICADO
+			* AUTOR: Daniel Cabeza
+			*/
+            //$tablecontents .= html_writer::tag('div', $formatted_message, array('class' => "mdl-left messagecontent
+            //    $side $notificationclass", 'id' => 'message_' . $messagenumber));
+			$tablecontents .= html_writer::start_tag('div', array('class' => "mdl-left messagecontent
                 $side $notificationclass", 'id' => 'message_' . $messagenumber));
+			
+			$tablecontents .= $formatted_message;
+	
+			$tablecontents .= render_attachments($message);
+			
+			$tablecontents .= html_writer::end_tag('div');
+			/*Fin de la adición*/
         }
-
         echo html_writer::nonempty_tag('div', $tablecontents, array('class' => 'mdl-left messagehistory'));
     } else {
         echo html_writer::nonempty_tag('div', '('.get_string('nomessagesfound', 'message').')', array('class' => 'mdl-align messagehistory'));
@@ -2974,3 +2985,132 @@ function message_is_user_blocked($recipient, $sender = null) {
 
     return false;
 }
+
+/**CÓDIGO AÑADIDO Y MODIFICADO
+* AUTOR: Daniel Cabeza
+*/
+
+/**
+ * Send a message from one user to another. Will be delivered according to the message recipients messaging preferences
+ *
+ * @param object $userfrom the message sender
+ * @param object $userto the message recipient
+ * @param string $message the message
+ * @param int $format message format such as FORMAT_PLAIN or FORMAT_HTML
+ * @param int $draftitemid the id of the draft area to use
+ * @return int|false the ID of the new message or false
+ */
+function message_post_message_attachment($userfrom, $userto, $message, $format, $draftitemid = null) {
+    global $SITE, $CFG, $USER;
+
+    $eventdata = new stdClass();
+    $eventdata->component        = 'moodle';
+    $eventdata->name             = 'instantmessage';
+    $eventdata->userfrom         = $userfrom;
+    $eventdata->userto           = $userto;
+
+    //using string manager directly so that strings in the message will be in the message recipients language rather than the senders
+    $eventdata->subject          = get_string_manager()->get_string('unreadnewmessage', 'message', fullname($userfrom), $userto->lang);
+
+    if ($format == FORMAT_HTML) {
+        $eventdata->fullmessagehtml  = $message;
+        //some message processors may revert to sending plain text even if html is supplied
+        //so we keep both plain and html versions if we're intending to send html
+        $eventdata->fullmessage = html_to_text($eventdata->fullmessagehtml);
+    } else {
+        $eventdata->fullmessage      = $message;
+        $eventdata->fullmessagehtml  = '';
+    }
+
+    $eventdata->fullmessageformat = $format;
+    $eventdata->smallmessage     = $message;//store the message unfiltered. Clean up on output.
+
+    $s = new stdClass();
+    $s->sitename = format_string($SITE->shortname, true, array('context' => context_course::instance(SITEID)));
+    $s->url = $CFG->wwwroot.'/message/index.php?user='.$userto->id.'&id='.$userfrom->id;
+
+    $emailtagline = get_string_manager()->get_string('emailtagline', 'message', $s, $userto->lang);
+    if (!empty($eventdata->fullmessage)) {
+        $eventdata->fullmessage .= "\n\n---------------------------------------------------------------------\n".$emailtagline;
+    }
+    if (!empty($eventdata->fullmessagehtml)) {
+        $eventdata->fullmessagehtml .= "<br /><br />---------------------------------------------------------------------<br />".$emailtagline;
+    }
+
+    $eventdata->timecreated     = time();
+    $eventdata->notification    = 0;
+	if (!empty($draftitemid)) {
+		$eventdata->draftitemid 	= $draftitemid;
+	}
+    return message_send($eventdata);
+}
+
+function render_attachments ($message) {
+	$tablecontents = '';
+	if (!empty($message) and is_object($message) and !empty($message->useridfrom) and !empty($message->useridto)
+		and !empty($message->timecreated)) {
+		$fs = get_file_storage();
+			$context = context_user::instance($message->useridfrom);
+			//$context = context_system::instance();
+			$messageid_ansaner = $message->useridfrom.$message->useridto.$message->timecreated;
+			$files = $fs->get_area_files($context->id, 'block_messages', 'attachment', $messageid_ansaner);
+			
+			if (count($files) > 0) {
+				global $OUTPUT;
+				foreach ($files as $file) {
+					if ($file->is_directory() and $file->get_filepath() === '/') {
+						continue;
+					}
+					$contextid = $file->get_contextid();
+					$itemid = $messageid_ansaner;//$file->get_itemid();
+					$filename = $file->get_filename();
+					$filesize = $file->get_filesize();
+					$mimetype = $file->get_mimetype();
+
+					$viewurl = new moodle_url('/pluginfile.php/' . $contextid . '/block_messages/attachment/' . $itemid . '/' . $filename);
+					$previewurl = clone($viewurl);
+					$previewurl->param('preview', 'thumb');
+					$downloadurl = clone($viewurl);
+					$downloadurl->param('forcedownload', 'true');
+
+					if ($file->is_valid_image()) {
+						$tablecontents .= html_writer::start_tag('table');
+						$tablecontents .= html_writer::start_tag('tbody');
+						$tablecontents .= html_writer::start_tag('tr');
+						$tablecontents .= html_writer::start_tag('td');
+						$tablecontents .= html_writer::link($viewurl, html_writer::empty_tag('img', array('src' => $previewurl->out(), 'class' => 'thumbnail', 'alt' => $mimetype)));
+						$tablecontents .= html_writer::end_tag('td');
+						$tablecontents .= html_writer::start_tag('td');
+						$tablecontents .= html_writer::tag('b', $filename);
+						$tablecontents .= html_writer::empty_tag('br');
+						$tablecontents .= html_writer::tag('span', display_size($filesize), array('class' => 'meta-filesize'));
+						$tablecontents .= html_writer::link($viewurl, html_writer::tag('span', get_string('view')));
+						$tablecontents .= html_writer::link($downloadurl, html_writer::tag('span', get_string('download')));
+						$tablecontents .= html_writer::end_tag('td');
+						$tablecontents .= html_writer::end_tag('tr');
+						$tablecontents .= html_writer::end_tag('tbody');
+						$tablecontents .= html_writer::end_tag('table');
+					} else {
+						$tablecontents .= html_writer::start_tag('table');
+						$tablecontents .= html_writer::start_tag('tbody');
+						$tablecontents .= html_writer::start_tag('tr');
+						$tablecontents .= html_writer::start_tag('td');
+						$tablecontents .= html_writer::link($downloadurl, html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url(file_mimetype_icon($mimetype)), 'class' => 'icon', 'alt' => $mimetype)));
+						$tablecontents .= html_writer::end_tag('td');
+						$tablecontents .= html_writer::start_tag('td');
+						$tablecontents .= html_writer::tag('i', $filename);
+						$tablecontents .= html_writer::empty_tag('br');
+						$tablecontents .= html_writer::tag('span', display_size($filesize), array('class' => 'meta-filesize'));
+						$tablecontents .= html_writer::link($downloadurl, html_writer::tag('span', get_string('download')));
+						$tablecontents .= html_writer::end_tag('td');
+						$tablecontents .= html_writer::end_tag('tr');
+						$tablecontents .= html_writer::end_tag('tbody');
+						$tablecontents .= html_writer::end_tag('table');
+					}
+				}
+			}
+			
+	}
+	return $tablecontents;
+}
+/*FIN DE LA ADICIÓN*/

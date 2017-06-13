@@ -214,8 +214,19 @@ if ($currentuser && !empty($user2) && has_capability('moodle/site:sendmessage', 
             if (!confirm_sesskey()) {
                 print_error('invalidsesskey');
             }
-            $messageid = message_post_message($user1, $user2, $data->message, FORMAT_MOODLE);
-            if (!empty($messageid)) {
+			/**CÓDIGO AÑADIDO Y MODIFICADO
+			* AUTOR: Daniel Cabeza
+			* Envía los datos del mensaje a la función que los procesará
+			*/
+			//$messageid = message_post_message($user1, $user2, $data->message, FORMAT_MOODLE);
+			$attachmentid = null;
+			if (!empty($data->attachments)) {
+				$attachmentid = $data->attachments['itemid'];
+			}
+			$messageid = message_post_message_attachment($user1, $user2, $data->message, FORMAT_HTML, $attachmentid);
+			/**FIN DE LA MODIFICACIÓN*/
+			
+            if (!empty($messageid)) {				
                 //including the id of the user sending the message in the logged URL so the URL works for admins
                 //note message ID may be misleading as the message may potentially get a different ID when moved from message to message_read
                 redirect($CFG->wwwroot . '/message/index.php?viewing='.$viewing.'&id='.$user2->id);
@@ -372,6 +383,7 @@ echo html_writer::start_tag('div', array('class' => 'messagearea mdl-align'));
     } else if ($viewing == MESSAGE_VIEW_RECENT_NOTIFICATIONS) {
         message_print_recent_notifications($user1);
     }
+
 echo html_writer::end_tag('div');
 
 echo $OUTPUT->box_end();

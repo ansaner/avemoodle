@@ -224,7 +224,28 @@ function message_send($eventdata) {
     // Store unread message just in case we get a fatal error any time later.
     $savemessage->id = $DB->insert_record('message', $savemessage);
     $eventdata->savedmessageid = $savemessage->id;
-
+	
+	/**CÓDIGO AÑADIDO
+	* AUTOR: Daniel Cabeza
+	* Guarda los ficheros añadidos por los usuarios
+	*/
+	if (!empty($eventdata->draftitemid)) {
+		$context_user1 = context_user::instance($savemessage->useridfrom);
+		$messageid_ansaner = $savemessage->useridfrom.$savemessage->useridto.$savemessage->timecreated;
+		$messagetext = file_save_draft_area_files($eventdata->draftitemid, $context_user1->id, 'block_messages', 'attachment',$messageid_ansaner);
+		$rendered_files = render_attachments ($savemessage);
+		
+		//$savemessage->fullmessage .= $rendered_files;
+		//$savemessage->fullmessagehtml .= $rendered_files;
+		if ($eventdata->fullmessageformat == '0') {
+			$eventdata->fullmessage = $rendered_files . "\n\n---------------------------------------------------------------------\n" . $eventdata->fullmessage;
+		}
+		else {
+			$eventdata->fullmessagehtml = $rendered_files . '<hr>' . $eventdata->fullmessagehtml;
+		}
+	}
+	/** FIN DEL CÓDIGO AÑADIDO */
+	
     // Let the manager do the sending or buffering when db transaction in progress.
     return \core\message\manager::send_message($eventdata, $savemessage, $processorlist);
 }

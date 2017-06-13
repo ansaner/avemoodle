@@ -33,6 +33,11 @@ $edit = optional_param('edit', '', PARAM_BOOL);
 $returnto = optional_param('returnto', '', PARAM_LOCALURL);
 $format = optional_param('format', FORMAT_MOODLE, PARAM_INT);
 $deluser = optional_param('deluser', 0, PARAM_INT);
+/**CÓDIGO AÑADIDO Y MODIFICADO
+* AUTOR: Daniel Cabeza
+*/
+$attachments = optional_param('attachments', null, PARAM_INT);
+/**FIN DE LA ADICIÓN*/
 
 $url = new moodle_url('/user/messageselect.php', array('id' => $id));
 if ($messagebody !== '') {
@@ -148,15 +153,57 @@ if (!empty($messagebody) && !$edit && !$deluser && ($preview || $send)) {
 <input type="hidden" name="format" value="'.$format.'" />
 <input type="hidden" name="sesskey" value="' . sesskey() . '" />
 ';
-            echo "<h3>".get_string('previewhtml')."</h3>";
+
+echo "<h3>".get_string('previewhtml')."</h3>";
+/**CÓDIGO AÑADIDO Y MODIFICADO
+* AUTOR: Daniel Cabeza
+*/
+echo '
+<input type="hidden" name="attachments" value="'.$attachments.'" />
+';
+			$usercontext = context_user::instance($USER->id);
+			$fs = get_file_storage();
+			$draftfiles = $fs->get_area_files($usercontext->id, 'user', 'draft', $attachments, 'id', true);
+			foreach ($draftfiles as $file) {
+				if ($file->is_directory() and $file->get_filepath() === '/') {
+						continue;
+					}
+					
+					$filename = $file->get_filename();
+					$filesize = $file->get_filesize();
+					$mimetype = $file->get_mimetype();
+
+					$tablecontents = '';
+					
+						$tablecontents .= html_writer::start_tag('table');
+						$tablecontents .= html_writer::start_tag('tbody');
+						$tablecontents .= html_writer::start_tag('tr');
+						$tablecontents .= html_writer::start_tag('td');
+						$tablecontents .= html_writer::tag('b', $filename);
+						$tablecontents .= html_writer::empty_tag('br');
+						$tablecontents .= html_writer::tag('span', display_size($filesize), array('class' => 'meta-filesize'));
+						$tablecontents .= html_writer::end_tag('td');
+						$tablecontents .= html_writer::end_tag('tr');
+						$tablecontents .= html_writer::end_tag('tbody');
+						$tablecontents .= html_writer::end_tag('table');
+					
+					echo $tablecontents;
+			}
+/**FIN DE LA ADICIÓN*/
+		
             echo "<div class=\"messagepreview\">\n".format_text($messagebody, $format)."\n</div>\n";
             echo '<p align="center"><input type="submit" name="send" value="'.get_string('sendmessage', 'message').'" />'."\n";
             echo '<input type="submit" name="edit" value="'.get_string('update').'" /></p>';
             echo "\n</form>";
-        } else if (!empty($send)) {
+        } else if (!empty($send)) {			
             $fails = array();
             foreach ($SESSION->emailto[$id] as $user) {
-                if (!message_post_message($USER, $user, $messagebody, $format)) {
+				/**CÓDIGO AÑADIDO Y MODIFICADO
+				* AUTOR: Daniel Cabeza
+				*/
+                //if (!message_post_message($USER, $user, $messagebody, $format)) {
+                if (!message_post_message_attachment($USER, $user, $messagebody, $format,$attachments)) {
+				/*FIN DE LA ADICIÓN*/
                     $user->fullname = fullname($user);
                     $fails[] = get_string('messagedselecteduserfailed', 'moodle', $user);
                 };

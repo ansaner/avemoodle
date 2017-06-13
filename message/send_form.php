@@ -26,6 +26,8 @@ if (!defined('MOODLE_INTERNAL')) {
 }
 
 require_once($CFG->dirroot.'/lib/formslib.php');
+// load repository lib, will load filelib and formslib
+require_once($CFG->dirroot . '/repository/lib.php');
 
 /**
  * The form used by users to send instant messages
@@ -54,9 +56,43 @@ class send_form extends moodleform {
         $mform->setType('viewing', PARAM_ALPHANUMEXT);
 
         $mform->addElement('textarea', 'message', get_string('message', 'message'), $displayoptions, $editoroptions);
-
+		
+		/**CÓDIGO AÑADIDO Y MODIFICADO
+		* AUTOR: Daniel Cabeza
+		* Inserta el File manager
+		*/
+		$mform->addElement('filemanager', 'attachments[itemid]', get_string('areaattachment', 'forum'), null, self::attachment_options());
+		/*FIN DE LA MODIFICACIÓN*/
+		
         $this->add_action_buttons(false, get_string('sendmessage', 'message'));
     }
+	
+	/**CÓDIGO AÑADIDO Y MODIFICADO
+	* AUTOR: Daniel Cabeza
+	* Returns the options array to use in filemanager for dialogue attachments
+	*/
+    public static function attachment_options($draftitemid = null) {
+        global $CFG, $COURSE, $PAGE; 
+		$coursecontext = context_course::instance($COURSE->id);
+		$maxfiles = 2;
+		if(has_capability('moodle/grade:viewhidden',$coursecontext)){
+			$maxfiles = 5;
+		}
+		
+        $maxbytes = get_user_max_upload_file_size($PAGE->context, $CFG->maxbytes, $COURSE->maxbytes, 2048000);
+		$result = array(
+            'subdirs' => 0,
+            'maxbytes' => $maxbytes,
+            'maxfiles' => $maxfiles,
+            'accepted_types' => '*',
+            'return_types' => FILE_INTERNAL
+        );
+		if (!empty($draftitemid)) {
+			$result['itemid'] = $draftitemid;
+		}
+        return $result;
+    }
+	/*FIN DE LA ADICIÓN*/
 }
 
 ?>

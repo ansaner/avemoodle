@@ -24,6 +24,26 @@
     </td>
 </tr>
 
+<?php
+/**CÓDIGO AÑADIDO Y MODIFICADO
+* AUTOR: Daniel Cabeza
+*/
+?>
+<tr>
+	<td></td>
+	<td>
+<?php 
+	include_once('../lib/form/filemanager.php');
+	include_once('../message/send_form.php');
+	$options = new send_form();
+	$filemanager = new MoodleQuickForm_filemanager('attachments', 'elementLabel', array(), $options->attachment_options($attachments));
+	echo $filemanager->toHtml();
+?>	
+	</td>
+</tr>
+<?php
+/*FIN DE LA ADICIÓN*/
+?>
 <tr><td align="center" colspan="2">
         <input type="submit" name="send" value="<?php print_string('sendmessage', 'message'); ?>" />
         <input type="submit" name="preview" value="<?php print_string('preview'); ?>" />
